@@ -1,0 +1,15 @@
+This tool provides a tray-icon to configure the Ericsson f3507g umts-card on linux.
+
+It can (more or less) easily be modified to support other cards with other AT commandsets.
+
+Usage:
+
+wwan.py <SERIAL> <INSTALLLOCATION>
+
+For example:
+~/scripts/wwan/wwan.py /dev/ttyACM0 ~/scripts/wwan
+
+The icons are taken from the gnome-colors-icon-theme (GPL) and can be found at different locations
+eg: /usr/share/icons/gnome-colors-common/scalable/notifications/
+
+AT-Commandset: http://www.natisbad.org/E4300/Dell_Wireless_5530_AT_cmd_ref.html
