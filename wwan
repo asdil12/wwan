@@ -34,7 +34,7 @@ case "$1" in
     stat_done
     ;;
   stop)
-    stat_busy "Stopping wicd Daemon"
+    stat_busy "Stopping wwan Daemon"
 	/usr/sbin/chat -v "" "AT*ENAP=0" "OK" > $(CONTROL_DEVICE) < $(CONTROL_DEVICE)
 	stat_append " : ETH"
 	/usr/sbin/chat -v "" "AT+CFUN=4" "OK" > $(CONTROL_DEVICE) < $(CONTROL_DEVICE)
