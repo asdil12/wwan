@@ -22,7 +22,7 @@ case "$1" in
 	/usr/sbin/chat -v "" "ATQ0 E0 V1 X4 &C1" > $(CONTROL_DEVICE) < $(CONTROL_DEVICE)
 	stat_append " : INIT"
 	sleep 2
-	/usr/sbin/chat -v "" "AT+CPIN=\"$PIN"\" > $(CONTROL_DEVICE) < $(CONTROL_DEVICE)
+	/usr/sbin/chat -v "" "AT+CPIN=\"$PIN\"" > $(CONTROL_DEVICE) < $(CONTROL_DEVICE)
 	stat_append " : PIN"
 	sleep 2
 	/usr/sbin/chat -v "" "AT+CFUN=1" >  $(CONTROL_DEVICE) < $(CONTROL_DEVICE)
