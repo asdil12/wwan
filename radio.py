@@ -49,7 +49,7 @@ def set_status(ser, type):
 			on()
 		elif type == OFF:
 			off()
-		if type != OFF:
+		else:
 			ser.flushOutput()
 			ser.flushInput()
 			ser.write('AT+CFUN='+str(type)+'\r\n')
