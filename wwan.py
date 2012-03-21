@@ -165,7 +165,7 @@ class Monitor:
 
 class StatusIcon:
 
-	NONE_ICON = 'notification-gsm-disconnected.svg'
+	NONE_ICON = 'notification-disabled.svg'
 
 	UMTS_ICON = [
 		'notification-gsm-disconnected.svg',
@@ -210,6 +210,8 @@ class StatusIcon:
 			print "Can't access icon %s" % StatusIcon.NONE_ICON
 		self.status_icon = gtk.status_icon_new_from_file(file)
 		self.status_icon.set_visible(True)
+		# prevent running callbacks, when changing button values from program
+		self.allowcallbacks = True
 
 		# Build Context Menu
 		menu = gtk.Menu()
@@ -258,21 +260,25 @@ class StatusIcon:
 		pass
 
 	def normalRadio_menu_cb(self, widget, data=None):
-		print "UI-CALLBACK: PREFER"
-		self.controller.setRadio(radio.PREFER)
+		if self.allowcallbacks:
+			print "UI-CALLBACK: PREFER"
+			self.controller.setRadio(radio.PREFER)
 
 	def umtsRadio_menu_cb(self, widget, data=None):
-		print "UI-CALLBACK: UMTS"
-		self.controller.setRadio(radio.UMTS)
+		if self.allowcallbacks:
+			print "UI-CALLBACK: UMTS"
+			self.controller.setRadio(radio.UMTS)
 
 	def gprsRadio_menu_cb(self, widget, data=None):
-		print "UI-CALLBACK: GPRS"
-		self.controller.setRadio(radio.GPRS)
+		if self.allowcallbacks:
+			print "UI-CALLBACK: GPRS"
+			self.controller.setRadio(radio.GPRS)
 
 	def enable_menu_cb(self, widget, data=None):
-		print "UI-CALLBACK: enable button %s" % str(widget.get_active())
-		state = radio.PREFER if widget.get_active() else radio.OFF
-		self.controller.setRadio(state)
+		if self.allowcallbacks:
+			print "UI-CALLBACK: enable button %s" % str(widget.get_active())
+			state = radio.PREFER if widget.get_active() else radio.OFF
+			self.controller.setRadio(state)
 
 	def close_menu_cb(self, widget, data=None):
 		# Hide the icon first to give instant semantic feedback
@@ -326,13 +332,17 @@ class StatusIcon:
 			#self.status_icon.set_has_tooltip(False)
 			self.status_icon.set_tooltip('Disabled')
 			[item.set_sensitive(False) for item in self.radioRadioMenu.values()]
+			self.allowcallbacks = False
 			self.enabledMenuItem.set_active(False)
+			self.allowcallbacks = True
 		else:
 			self.status_icon.set_has_tooltip(True)
 			self.status_icon.set_tooltip(message)
 			[item.set_sensitive(True) for item in self.radioRadioMenu.values()]
+			self.allowcallbacks = False
 			self.enabledMenuItem.set_active(True)
 			self.radioRadioMenu[radiostate].set_active(True)
+			self.allowcallbacks = True
 		gtk.gdk.threads_leave()
 
 	def notify_status(self,	network, type, signal):
@@ -420,6 +430,7 @@ class Controller(threading.Thread):
 				except serial.serialutil.SerialException:
 					print 'Failure Opening Serial Port'
 					self.monitor.reset()
+					self.lasttype = radio.OFF
 					self.monitor.setSerial(serial.Serial())
 
 				# If radio state change request has been made
@@ -432,7 +443,10 @@ class Controller(threading.Thread):
 				if self.monitor.getSerial().isOpen():
 					self.monitor.update_signal()
 					if self.monitor.update_network() | self.monitor.update_type():
-						self.ui.notify_status(self.monitor.get_network(), self.monitor.get_type(), self.monitor.get_signal())
+						try:
+							self.ui.notify_status(self.monitor.get_network(), self.monitor.get_type(), self.monitor.get_signal())
+						except:
+							print "ERROR: No notification-daemon running"
 				else:
 					self.monitor.reset()
 
@@ -445,7 +459,8 @@ class Controller(threading.Thread):
 
 			# Update UI
 			radioState = self.getRadioState()
-			#if radioState != radio.ERROR:
+			print "set last: %s" % str(radioState)
+			self.lasttype = radioState
 			self.ui.update(radioState, self.monitor.get_network(), self.monitor.get_type(), self.monitor.get_signal())
 
 			# Close Monitor
