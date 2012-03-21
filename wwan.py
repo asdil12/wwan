@@ -92,6 +92,11 @@ class Monitor:
 
 	# Returns True if the signal level has changed since the last call
 	def update_signal(self):
+		"""
+		AT+CIND?
+		+CIND: 4,2,0,0,1,0,0,0,0,0,0,0
+		         ^ signal
+		"""
 		cind_res = self.call(self.ser, 'AT+CIND?')
 		signal = 0
 		if len(cind_res) > 2:
@@ -107,6 +112,10 @@ class Monitor:
 
 	# Returns True if the network has changed since the last call
 	def update_network(self):
+		"""
+		AT+COPS?
+		+COPS: 0,0,"Telekom.de",2
+		"""
 		response = self.call(self.ser, 'AT+COPS?')
 		network = 'Searching'
 		if len(response) > 2:
