@@ -22,10 +22,12 @@ import subprocess
 class Monitor:
 
 	ERINFO_GPRS = '0,1,0'
+	ERINFO_EDGE = '0,2,0'
 	ERINFO_UMTS = '0,0,1'
 	ERINFO_HSPA = '0,0,2'
 
 	GPRS = 'GPRS'
+	EDGE = 'EDGE'
 	UMTS = '3G'
 	HSPA = '3G+'
 	NONE = 'NONE'
@@ -48,7 +50,14 @@ class Monitor:
 
 	def call(self, ser, command):
 		ser.write(command + '\r\n')
-		response = [r.replace('\r\n', '') for r in ser.readlines() if not r.startswith(('^', '_')) and r.replace('\r\n', '')]
+		# strip 1st element (holds our command or '\r\n' on E0)
+		out = ser.readlines()[1:]
+		response = [r.replace('\r\n', '') for r in out if not r.startswith(('^', '_'))]
+		print
+		print "reqw: %s" % str(command)
+		print "call: %s" % str(out)
+		print "cals: %s" % str(response)
+		print
 		return response
 
 	# This function returns meaningful results only when in GPRS mode - it therefore isn't used but kept for reference
@@ -75,16 +84,23 @@ class Monitor:
 
 	# Returns True if the state of the access type has changed since the last call
 	def update_type(self):
-		erinfo_res = self.call(self.ser, 'AT*ERINFO?')
+		"""
+		AT*ERINFO?
+		*ERINFO: 0,2,0
+		"""
+		response = self.call(self.ser, 'AT*ERINFO?')
 		type = self.NONE
-		if len(erinfo_res) > 2:
-			erinfo = erinfo_res[1].replace('*ERINFO: ', '')
+		if len(response) >= 2:
+			erinfo = response[0].replace('*ERINFO: ', '')
 			if erinfo == self.ERINFO_GPRS:
 				type = self.GPRS
+			elif erinfo == self.ERINFO_EDGE:
+				type = self.EDGE
 			elif erinfo == self.ERINFO_UMTS:
 				type = self.UMTS
 			elif erinfo == self.ERINFO_HSPA:
 				type = self.HSPA
+			print "type: %s" % type
 			if type != self.cur_type:
 				self.cur_type = type
 				return True
@@ -97,14 +113,13 @@ class Monitor:
 		+CIND: 4,2,0,0,1,0,0,0,0,0,0,0
 		         ^ signal
 		"""
-		cind_res = self.call(self.ser, 'AT+CIND?')
+		response = self.call(self.ser, 'AT+CIND?')
 		signal = 0
-		if len(cind_res) > 2:
-			cind_only = cind_res[1].replace('+CIND: ', '')
-			cind = cind_only.replace(',', ' ')
-			cinds = shlex.split(cind)
-			if len(cinds) > 2:
-				signal = int(cinds[1])
+		if len(response) >= 2:
+			cind = response[0].replace('+CIND: ', '').split(',')
+			if len(cind) > 2:
+				signal = int(cind[1])
+				print "signal: %s" % str(signal)
 			if signal != self.cur_signal:
 				self.cur_signal = signal
 				return True
@@ -118,12 +133,13 @@ class Monitor:
 		"""
 		response = self.call(self.ser, 'AT+COPS?')
 		network = 'Searching'
-		if len(response) > 2:
-			if (response[1])[:6] == '+COPS:':
-				index = string.find(response[1], '"')
-				index2 = string.find((response[1])[index + 1:], '"') + index
-				network_string = (response[1])[index + 1:index2 + 1]
+		if len(response) >= 2:
+			if (response[0])[:6] == '+COPS:':
+				index = string.find(response[0], '"')
+				index2 = string.find((response[0])[index + 1:], '"') + index
+				network_string = (response[0])[index + 1:index2 + 1]
 				if index2 > index:
+					print "network: %s" % str(network_string)
 					network = network_string
 					if network != self.cur_network:
 						self.cur_network = network
@@ -164,6 +180,15 @@ class StatusIcon:
 		'notification-gsm-medium.svg',
 		'notification-gsm-high.svg',
 		'notification-gsm-full.svg',
+		]
+
+	EDGE_ICON = [
+		'notification-gsm-disconnected.svg',
+		'notification-gsm-none.svg',
+		'notification-gsm-edge-low.svg',
+		'notification-gsm-edge-medium.svg',
+		'notification-gsm-edge-high.svg',
+		'notification-gsm-edge-full.svg',
 		]
 
 	def __init__(self, controller):
@@ -263,6 +288,8 @@ class StatusIcon:
 		iconname = StatusIcon.NONE_ICON
 		if type == Monitor.GPRS:
 			iconname = self.GPRS_ICON[signal]
+		elif type == Monitor.EDGE:
+			iconname = self.EDGE_ICON[signal]
 		elif type == Monitor.UMTS:
 			iconname = self.UMTS_ICON[signal]
 		elif type == Monitor.HSPA:
@@ -341,7 +368,7 @@ class Controller(threading.Thread):
 			try:
 				# Reopen Monitor
 				try:
-					self.monitor.setSerial(serial.Serial(self.serialNode, 19200, timeout=0.1))
+					self.monitor.setSerial(serial.Serial(self.serialNode, 19200, timeout=0.25))
 				except serial.serialutil.SerialException:
 					print 'Failure Opening Serial Port'
 					self.monitor.reset()
