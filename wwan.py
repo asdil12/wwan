@@ -14,10 +14,23 @@ pygtk.require('2.0')
 import gtk
 import pynotify
 import time
-import radio
 import threading
 import signal
 import subprocess
+
+class DictObj:
+	def __init__(self, d):
+		self.d = d
+	def __getattr__(self, a):
+		return self.d.get(a, None)
+
+radio = DictObj({
+	'ERROR': 0,
+	'PREFER': 1,
+	'OFF': 4,
+	'GPRS': 5,
+	'UMTS': 6
+	})
 
 class Monitor:
 
@@ -26,10 +39,10 @@ class Monitor:
 	ERINFO_UMTS = '0,0,1'
 	ERINFO_HSPA = '0,0,2'
 
-	GPRS = 'GPRS'
-	EDGE = 'EDGE'
+	GPRS = 'G'
+	EDGE = 'E'
 	UMTS = '3G'
-	HSPA = '3G+'
+	HSPA = 'H'
 	NONE = 'NONE'
 
 	def __init__(self):
@@ -55,7 +68,6 @@ class Monitor:
 		response = [r.replace('\r\n', '') for r in out if not r.startswith(('^', '_'))]
 		print
 		print "reqw: %s" % str(command)
-		print "call: %s" % str(out)
 		print "cals: %s" % str(response)
 		print
 		return response
@@ -221,9 +233,9 @@ class StatusIcon:
 
 		menu.append(gtk.SeparatorMenuItem())
 
-		enabledMenuItem = gtk.CheckMenuItem('Enabled')
-		enabledMenuItem.connect('toggled', self.enable_menu_cb)
-		menu.append(enabledMenuItem)
+		self.enabledMenuItem = gtk.CheckMenuItem('Enabled')
+		self.enabledMenuItem.connect('toggled', self.enable_menu_cb)
+		menu.append(self.enabledMenuItem)
 
 		menu.append(gtk.SeparatorMenuItem())
 
@@ -246,15 +258,19 @@ class StatusIcon:
 		pass
 
 	def normalRadio_menu_cb(self, widget, data=None):
+		print "UI-CALLBACK: PREFER"
 		self.controller.setRadio(radio.PREFER)
 
 	def umtsRadio_menu_cb(self, widget, data=None):
+		print "UI-CALLBACK: UMTS"
 		self.controller.setRadio(radio.UMTS)
 
 	def gprsRadio_menu_cb(self, widget, data=None):
+		print "UI-CALLBACK: GPRS"
 		self.controller.setRadio(radio.GPRS)
 
 	def enable_menu_cb(self, widget, data=None):
+		print "UI-CALLBACK: enable button %s" % str(widget.get_active())
 		state = radio.PREFER if widget.get_active() else radio.OFF
 		self.controller.setRadio(state)
 
@@ -310,10 +326,12 @@ class StatusIcon:
 			#self.status_icon.set_has_tooltip(False)
 			self.status_icon.set_tooltip('Disabled')
 			[item.set_sensitive(False) for item in self.radioRadioMenu.values()]
+			self.enabledMenuItem.set_active(False)
 		else:
 			self.status_icon.set_has_tooltip(True)
 			self.status_icon.set_tooltip(message)
 			[item.set_sensitive(True) for item in self.radioRadioMenu.values()]
+			self.enabledMenuItem.set_active(True)
 			self.radioRadioMenu[radiostate].set_active(True)
 		gtk.gdk.threads_leave()
 
@@ -342,8 +360,9 @@ class Controller(threading.Thread):
 		self.running = True
 		self.event = threading.Event()
 		self.updateRadioState = False
-		self.setRadioState = radio.PREFER
+		self.setRadioState = radio.OFF
 		self.serialNode = serialNode
+		self.lasttype = radio.OFF
 		threading.Thread.__init__(self)
 
 	def close(self):
@@ -353,7 +372,23 @@ class Controller(threading.Thread):
 	def getRadioState(self):
 		ser = self.monitor.getSerial()
 		if ser.isOpen():
-			return radio.status(ser)
+			#if not ser.port:
+			#	# because of rfkill there may be no serial device
+			#	return radio.OFF
+			ser = self.monitor.getSerial()
+			response = self.monitor.call(ser, "AT+CFUN?")
+			if len(response) >= 2:
+				output = response[0].replace('+CFUN: ','')
+				if (output == '1'):
+					return radio.PREFER
+				elif (output == '4'):
+					return radio.OFF
+				elif (output == '5'):
+					return radio.GPRS
+				elif (output == '6'):
+					return radio.UMTS
+			else:
+				return radio.ERROR
 		return radio.ERROR
 
 	def setRadio(self, state):
@@ -361,6 +396,19 @@ class Controller(threading.Thread):
 		self.updateRadioState = True
 		self.setRadioState = state
 		self.event.set()
+
+	def _setRadio(self, type):
+		if self.lasttype != type:
+			if self.lasttype == radio.OFF:
+				subprocess.call(['/etc/rc.d/wwan', 'start'])
+			elif type == radio.OFF:
+				subprocess.call(['/etc/rc.d/wwan', 'stop'])
+				self.monitor.reset()
+				self.monitor.setSerial(serial.Serial())
+			else:
+				ser = self.monitor.getSerial()
+				self.monitor.call(ser, "AT+CFUN=%s" % str(type))
+			self.lasttype = type
 
 	def run(self):
 		print 'Starting monitoring loop'
@@ -377,8 +425,7 @@ class Controller(threading.Thread):
 				# If radio state change request has been made
 				if self.updateRadioState:
 					print 'Changing Radio State to %s' % self.setRadioState
-					ser = self.monitor.getSerial()
-					radio.set_status(ser, self.setRadioState)
+					self._setRadio(self.setRadioState)
 					self.updateRadioState = False
 
 				# Fetch new data using serial
