@@ -14,7 +14,7 @@ CONTROL_DEVICE () {
 
 case "$1" in
   start)
-	stat_busy "Starting wwan connection"
+	stat_busy "Starting wwan Connection"
 	if ! ck_daemon wwan ; then
 		# already running
 		stat_die
@@ -40,7 +40,7 @@ case "$1" in
 	stat_done
     ;;
   stop)
-	stat_busy "Stopping wwan Daemon"
+	stat_busy "Stopping wwan Connection"
 	if [ -z "$(lsusb -d $USB_ID)" ] || ck_daemon wwan ; then
 		stat_die
 	fi
