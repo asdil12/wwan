@@ -14,7 +14,11 @@ CONTROL_DEVICE () {
 
 case "$1" in
   start)
-    stat_busy "Starting wwan connection"
+	stat_busy "Starting wwan connection"
+	if ! ck_daemon wwan ; then
+		# already running
+		stat_die
+	fi
 	rfkill unblock wwan
 	while [ -z "$(lsusb -d $USB_ID)" ] ; do sleep 0.5 ; done
 	stat_append " : RFKILL"
@@ -32,16 +36,15 @@ case "$1" in
 	ip li set $ETH_IF up
 	dhcpcd -q -h $HOSTNAME --noipv4ll $ETH_IF
 	stat_append " : DHCP"
-    add_daemon wwan
-    stat_done
+	add_daemon wwan
+	stat_done
     ;;
   stop)
-    stat_busy "Stopping wwan Daemon"
-	if [ -z "$(lsusb -d $USB_ID)" ] ; then
-		stat_fail
-		exit 1
+	stat_busy "Stopping wwan Daemon"
+	if [ -z "$(lsusb -d $USB_ID)" ] || ck_daemon wwan ; then
+		stat_die
 	fi
-	kill `cat /var/run/dhcpcd-$ETH_IF.pid`
+	kill `cat /var/run/dhcpcd-$ETH_IF.pid` > /dev/null 2>&1
 	stat_append " : DHCP"
 	/usr/sbin/chat -v "" "AT*ENAP=0" "OK" > $(CONTROL_DEVICE) < $(CONTROL_DEVICE)
 	stat_append " : ETH"
@@ -50,8 +53,8 @@ case "$1" in
 	rfkill block wwan
 	stat_append " : RFKILL"
 	while [ -n "$(lsusb -d $USB_ID)" ] ; do sleep 0.5 ; done
-    rm_daemon wwan
-    stat_done
+	rm_daemon wwan
+	stat_done
     ;;
   restart)
     $0 stop
