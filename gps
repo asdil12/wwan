@@ -1,0 +1,21 @@
+#!/bin/bash
+
+CONTROL_DEVICE () {
+	echo /dev/$(for n in /sys/class/tty/ttyACM*/device/interface; do if [ "$(cat $n)" = "Ericsson F3507g Mobile Broadband Minicard Data Modem" ]; then echo $n|awk -F '/' '{print $5}'; fi; done)
+}
+
+GPS_DEVICE () {
+	echo /dev/$(for n in /sys/class/tty/ttyACM*/device/interface; do if [ "$(cat $n)" = "Ericsson F3507g Mobile Broadband Minicard GPS Port" ]; then echo $n|awk -F '/' '{print $5}'; fi; done)
+}
+
+case "$1" in
+	start)
+		/usr/sbin/chat -v "" "AT*E2GPSCTL=1,1,1" "OK" > $(CONTROL_DEVICE) < $(CONTROL_DEVICE)
+		/usr/sbin/chat -v "" "AT*E2GPSNPD" "GPGGA" > $(GPS_DEVICE) < $(GPS_DEVICE)
+		echo "$(GPS_DEVICE) is ready to be used with gpsd"
+	;;
+	stop)
+		/usr/sbin/chat -v "" "AT*E2GPSCTL=0,1,0" "OK" > $(CONTROL_DEVICE) < $(CONTROL_DEVICE)
+	;;
+esac
+exit 0
