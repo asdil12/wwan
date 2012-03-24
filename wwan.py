@@ -62,15 +62,23 @@ class Monitor:
 		return self.ser
 
 	def call(self, ser, command):
-		ser.write(command + '\r\n')
-		# strip 1st element (holds our command or '\r\n' on E0)
-		out = ser.readlines()[1:]
-		response = [r.replace('\r\n', '') for r in out if not r.startswith(('^', '_'))]
-		print
-		print "reqw: %s" % str(command)
-		print "cals: %s" % str(response)
-		print
-		return response
+		try:
+			ser.write(command + '\r\n')
+			# strip 1st element (holds our command or '\r\n' on E0)
+			out = ser.readlines()[1:]
+			response = [r.replace('\r\n', '') for r in out if not r.startswith(('^', '_'))]
+			print
+			print "reqw: %s" % str(command)
+			print "cals: %s" % str(response)
+			print
+			return response
+		except (OSError, serial.SerialException) as e:
+			print "Error performing serial call"
+			try:
+				print e.args[-1]
+			except:
+				pass
+			return []
 
 	# This function returns meaningful results only when in GPRS mode - it therefore isn't used but kept for reference
 	def get_csq_signal(self):
