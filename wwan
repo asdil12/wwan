@@ -12,6 +12,8 @@ CONTROL_DEVICE () {
 	echo /dev/$(for n in /sys/class/tty/ttyACM*/device/interface; do if [ "$(cat $n)" = "Ericsson F3507g Mobile Broadband Minicard Data Modem" ]; then echo $n|awk -F '/' '{print $5}'; fi; done)
 }
 
+CHAT="chat -t 16 -v"
+
 case "$1" in
   start)
 	stat_busy "Starting wwan Connection"
@@ -23,15 +25,15 @@ case "$1" in
 	while [ -z "$(lsusb -d $USB_ID)" ] ; do sleep 0.5 ; done
 	stat_append " : RFKILL"
 	sleep 1
-	/usr/sbin/chat -v "" "ATQ0 E0 V1 X4 &C1" "OK" > $(CONTROL_DEVICE) < $(CONTROL_DEVICE)
+	$CHAT "" "ATQ0 E0 V1 X4 &C1" "OK" > $(CONTROL_DEVICE) < $(CONTROL_DEVICE)
 	stat_append " : INIT"
-	/usr/sbin/chat -v "" "AT+CPIN=\"$PIN\"" "OK" > $(CONTROL_DEVICE) < $(CONTROL_DEVICE)
+	$CHAT "" "AT+CPIN=\"$PIN\"" "OK" > $(CONTROL_DEVICE) < $(CONTROL_DEVICE)
 	stat_append " : PIN"
-	/usr/sbin/chat -v "" "AT+CFUN=1" "+PACSP0" >  $(CONTROL_DEVICE) < $(CONTROL_DEVICE)
+	$CHAT "" "AT+CFUN=1" "+PACSP0" >  $(CONTROL_DEVICE) < $(CONTROL_DEVICE)
 	stat_append " : MODE"
-	/usr/sbin/chat -v "" "AT+CGDCONT=1,\"IP\",\"$APN\"" "OK" > $(CONTROL_DEVICE) < $(CONTROL_DEVICE)
+	$CHAT "" "AT+CGDCONT=1,\"IP\",\"$APN\"" "OK" > $(CONTROL_DEVICE) < $(CONTROL_DEVICE)
 	stat_append " : APN"
-	/usr/sbin/chat -v "" "AT*ENAP=1,1" "OK" > $(CONTROL_DEVICE) < $(CONTROL_DEVICE)
+	$CHAT "" "AT*ENAP=1,1" "OK" > $(CONTROL_DEVICE) < $(CONTROL_DEVICE)
 	stat_append " : ETH"
 	ip li set $ETH_IF up
 	dhcpcd -q -h $HOSTNAME --noipv4ll $ETH_IF
@@ -46,9 +48,9 @@ case "$1" in
 	fi
 	kill `cat /var/run/dhcpcd-$ETH_IF.pid` > /dev/null 2>&1
 	stat_append " : DHCP"
-	/usr/sbin/chat -v "" "AT*ENAP=0" "OK" > $(CONTROL_DEVICE) < $(CONTROL_DEVICE)
+	$CHAT "" "AT*ENAP=0" "OK" > $(CONTROL_DEVICE) < $(CONTROL_DEVICE)
 	stat_append " : ETH"
-	/usr/sbin/chat -v "" "AT+CFUN=4" "OK" > $(CONTROL_DEVICE) < $(CONTROL_DEVICE)
+	$CHAT "" "AT+CFUN=4" "OK" > $(CONTROL_DEVICE) < $(CONTROL_DEVICE)
 	stat_append " : MODE"
 	rfkill block wwan
 	stat_append " : RFKILL"
