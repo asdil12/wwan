@@ -425,7 +425,15 @@ class Controller(threading.Thread):
 				self.monitor.setSerial(serial.Serial())
 			else:
 				ser = self.monitor.getSerial()
+				self.monitor.call(ser, "AT*ENAP=0")
+				time.sleep(1)
 				self.monitor.call(ser, "AT+CFUN=%s" % str(type))
+				time.sleep(5)
+				self.monitor.call(ser, "AT*ENAP=1,1")
+				time.sleep(3)
+				# it only works the 2nd time fore some reason
+				self.monitor.call(ser, "AT*ENAP=1,1")
+				time.sleep(2)
 			self.lasttype = type
 
 	def run(self):
