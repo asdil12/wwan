@@ -1,0 +1,22 @@
+#!/usr/bin/env python2
+
+# Aquired radio technology
+NONE = 'NONE'
+GPRS = 'GPRS'
+EDGE = 'EDGE'
+UMTS = 'UMTS'
+HSPA = 'HSPA'
+
+# Requested radio technology
+ERROR = 'ERROR'
+PREFER_UMTS = 'PREFER_UMTS'
+OFF = 'OFF'
+FORCE_GPRS = 'FORCE_GPRS'
+FORCE_UMTS = 'FORCE_UMTS'
+
+# Network registration
+NOT_SEARCHING = 'NOT_SEARCHING'
+SEARCHING = 'SEARCHING'
+REG_HOME = 'REG_HOME'
+REG_DENIED = 'REG_DENIED'
+REG_ROAMING = 'REG_ROAMING'
