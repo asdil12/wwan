@@ -1,6 +1,7 @@
 #!/usr/bin/env python2
 
 import os
+import sys
 import subprocess
 import threading
 import json
@@ -31,43 +32,91 @@ class WWANControl(object):
 
 	def enable(self):
 		self.rfkill(False)
+		sys.stdout.write("Waiting for USB device ...")
+		sys.stdout.flush()
 		while not self.ready:
 			sleep(0.5)
+			sys.stdout.write('.')
+			sys.stdout.flush()
+		print " OK"
 		self.modem = WWANModem(self.ports['wwan'], interface=config['wwan_interface'])
 		# first command may fail due to device being not ready, yet
+		sys.stdout.write("Unlocking SIM Card ...")
+		sys.stdout.flush()
 		while True:
 			try:
 				self.modem.unlock_sim(config['pin'])
 				break
-			except CommandError:
+			except (CommandError, TimeoutException):
 				sleep(0.5)
+				sys.stdout.write('.')
+				sys.stdout.flush()
+		print " OK"
+		sys.stdout.write("Configuring UMTS card ...")
 		self.modem.apn = config['apn']
+		sys.stdout.write('.')
+		sys.stdout.flush()
 		self.modem.ipver = config['ipver']
+		sys.stdout.write('.')
+		sys.stdout.flush()
+		print " OK"
+		sys.stdout.write("Connecting to network ...")
+		sys.stdout.flush()
 		self.modem.requested_radio_technology = PREFER_UMTS
 		while not self.modem.network_registration in [REG_HOME, REG_ROAMING]:
 			sleep(0.5)
+			sys.stdout.write('.')
+			sys.stdout.flush()
 		while self.modem.aquired_radio_technology == NONE:
 			sleep(0.5)
+			sys.stdout.write('.')
+			sys.stdout.flush()
+		print " OK"
 		#while not self.modem.connected:
 		#	try:
+		sys.stdout.write("Starting IP connection ...")
+		sys.stdout.flush()
 		self.modem.connected = True
+		while not self.modem.connected:
+			sleep(0.5)
+			sys.stdout.write('.')
+			sys.stdout.flush()
+		print " OK"
 		#	except CommandError:
 		#		sleep(0.5)
+		sys.stdout.write("Getting IP via DHCP ...")
 		self.dhcp_client(True)
 		self.carrier_watchdog(True)
+		while not self.ip:
+			sys.stdout.write('.')
+			sys.stdout.flush()
+			sleep(0.5)
+		print " OK"
 		self.enabled = True
 	
 	def disable(self):
+		sys.stdout.write("Shutting down UMTS card ...")
 		self.enabled = False
+		sys.stdout.write('.')
+		sys.stdout.flush()
 		self.carrier_watchdog(False)
+		sys.stdout.write('.')
+		sys.stdout.flush()
 		self.dhcp_client(False)
+		sys.stdout.write('.')
+		sys.stdout.flush()
 		try:
 			self.modem.connected = False
 			self.modem.requested_radio_technology = OFF
 		except:
 			pass
+		sys.stdout.write('.')
+		sys.stdout.flush()
 		self.modem = None
 		self.rfkill(True)
+		sys.stdout.write('.')
+		sys.stdout.flush()
+		print " OK"
 
 	def restart(self):
 		try:
